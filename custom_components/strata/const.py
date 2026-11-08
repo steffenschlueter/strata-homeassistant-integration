@@ -6,7 +6,7 @@ import logging
 
 DOMAIN = "strata"
 LOGGER = logging.getLogger(__package__)
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 CONF_VERIFY_SSL = "verify_ssl"
 DEFAULT_PORT = 8095  # Strata's --port default (serve/server.py)

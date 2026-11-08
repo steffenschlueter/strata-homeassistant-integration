@@ -5,12 +5,20 @@
  *   type: custom:strata-card
  *   entity: sensor.strata_monitor   # optional, found automatically when there is one Strata server
  *   title: Strata                   # optional
- *   sections: [state, metrics, context, requests]   # optional, default all
+ *   sections: [state, metrics, context, requests]   # optional, default all, in this order
+ *   metrics: [speed, gpu_load, vram, gpu_temp, power, pcie, cpu, disk]   # optional: which tiles, in this order
+ *   columns: 4                      # optional: tiles per row (default: up to 4)
  *   max_requests: 12                # optional
+ * A card with only the metrics section draws its tiles without the surrounding card, so a single tile
+ * (metrics: [power]) sits on the dashboard like any other card.
  */
-const CARD_VERSION = "0.1.0";
+const CARD_VERSION = "0.2.0";
 
 const SECTIONS = ["state", "metrics", "context", "requests"];
+const METRICS = ["speed", "gpu_load", "vram", "gpu_temp", "power", "pcie", "cpu", "disk"];
+const SECTION_LABELS = {state: "Model state", metrics: "Metric tiles", context: "Context fill", requests: "Recent requests"};
+const METRIC_LABELS = {speed: "Speed (decode / prefill)", gpu_load: "GPU load", vram: "VRAM", gpu_temp: "GPU temperature",
+  power: "Power", pcie: "PCIe", cpu: "CPU", disk: "Disk read"};
 const C = {green: "#34d399", blue: "#3aa9ff", amber: "#f5b53d", red: "#ff5a6e"};
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
@@ -31,9 +39,18 @@ class StrataCard extends HTMLElement {
       hass.states[id].attributes.hardware_static && hass.states[id].attributes.engine) || null;
   }
 
+  static getConfigElement() { return document.createElement("strata-card-editor"); }
+
   setConfig(config) {
-    if (config.sections && !Array.isArray(config.sections)) throw new Error("sections must be a list");
-    this._config = {max_requests: 12, sections: SECTIONS, ...config};
+    for (const [key, allowed] of [["sections", SECTIONS], ["metrics", METRICS]]) {
+      const v = config[key];
+      if (v == null) continue;
+      if (!Array.isArray(v)) throw new Error(`${key} must be a list`);
+      const bad = v.filter((x) => !allowed.includes(x));
+      if (bad.length) throw new Error(`unknown ${key}: ${bad.join(", ")} (allowed: ${allowed.join(", ")})`);
+    }
+    if (config.columns != null && !(Number(config.columns) >= 1 && Number(config.columns) <= 8)) throw new Error("columns must be 1-8");
+    this._config = {max_requests: 12, sections: SECTIONS, metrics: METRICS, ...config};
     this._lastState = null;
     if (!this.shadowRoot) this.attachShadow({mode: "open"});
     if (this._hass) this._render(true);
@@ -44,9 +61,21 @@ class StrataCard extends HTMLElement {
     this._render(false);
   }
 
-  getCardSize() { return 14; }
+  getCardSize() { return this._onlyMetrics() ? 3 : 14; }
 
-  getGridOptions() { return {columns: "full", min_columns: 6}; }
+  _onlyMetrics() {
+    const s = (this._config && this._config.sections) || SECTIONS;
+    return s.length === 1 && s[0] === "metrics";
+  }
+
+  getGridOptions() {
+    if (this._onlyMetrics()) {                    // tiles alone: as wide as they need in a Sections view
+      const n = Math.max(1, (this._config.metrics || METRICS).length);
+      const cols = Math.min(n, Number(this._config.columns) || 4);
+      return {columns: cols >= 4 ? "full" : cols * 3, min_columns: 3, rows: "auto"};
+    }
+    return {columns: "full", min_columns: 6};
+  }
 
   _entityId() {
     return this._config.entity || StrataCard.findMonitor(this._hass);
@@ -70,13 +99,13 @@ class StrataCard extends HTMLElement {
 
   // number formatting in the user's HA locale
   _fmt(n, d = 0) {
-    if (n == null || Number.isNaN(Number(n))) return "–";
+    if (n == null || Number.isNaN(Number(n))) return "\u2013";
     const lang = (this._hass && this._hass.locale && this._hass.locale.language) || undefined;
     return Number(n).toLocaleString(lang, {maximumFractionDigits: d, minimumFractionDigits: d});
   }
-  _kfmt(n) { return n == null ? "–" : n >= 1000 ? `${this._fmt(n / 1000, n >= 10000 ? 0 : 1)}k` : this._fmt(n); }
+  _kfmt(n) { return n == null ? "\u2013" : n >= 1000 ? `${this._fmt(n / 1000, n >= 10000 ? 0 : 1)}k` : this._fmt(n); }
   _ctxfmt(n) { return n && n % 1024 === 0 ? `${this._fmt(n / 1024)}K` : this._kfmt(n); }
-  _gb(b, d = 1) { return b == null ? "–" : this._fmt(b / 1073741824, d); }
+  _gb(b, d = 1) { return b == null ? "\u2013" : this._fmt(b / 1073741824, d); }
   _time(t, opts) {
     const loc = (this._hass && this._hass.locale) || {};
     const o = {...opts};
@@ -105,7 +134,7 @@ class StrataCard extends HTMLElement {
       `<div class="tile-val">${valueHtml}</div><div class="tile-sub">${esc(sub || "")}</div><div class="tile-spark">${spark}</div></div>`;
   }
 
-  _val(v, unit) { return v == null ? "–" : `${esc(v)}${unit ? `<small>${esc(unit)}</small>` : ""}`; }
+  _val(v, unit) { return v == null ? "\u2013" : `${esc(v)}${unit ? `<small>${esc(unit)}</small>` : ""}`; }
 
   _render(force) {
     if (!this._config || !this._hass || !this.shadowRoot) return;
@@ -142,18 +171,18 @@ class StrataCard extends HTMLElement {
         label = "Reading prompt"; tone = "info";
         if (live.prompt_total) {
           pct = (100 * live.prompt_read) / live.prompt_total;
-          detail = `${fmt(live.prompt_read)} / ${fmt(live.prompt_total)} tokens · ${fmt(pct)}%`;
+          detail = `${fmt(live.prompt_read)} / ${fmt(live.prompt_total)} tokens \u00b7 ${fmt(pct)}%`;
         } else detail = `${fmt(live.prompt_tokens)} tokens`;
       } else if (live.state === "generating") {
         label = live.phase ? live.phase[0].toUpperCase() + live.phase.slice(1) : "Generating";
         pct = live.max_tokens ? Math.min(100, (100 * live.generated) / live.max_tokens) : 0;
-        detail = `${fmt(live.generated)} tokens · ${fmt(live.tok_s, 1)} tok/s`;
+        detail = `${fmt(live.generated)} tokens \u00b7 ${fmt(live.tok_s, 1)} tok/s`;
       } else if (live.state === "unloaded") {
         label = "Unloaded"; detail = "Loads on the next request.";
       } else if (last) {
         detail = `last: ${fmt(last.output_tokens)} tokens${last.decode_tok_s ? ` at ${fmt(last.decode_tok_s, 1)} tok/s` : ""}`;
       }
-      if (live.queued > 0) detail += `${detail ? " · " : ""}${fmt(live.queued)} queued`;
+      if (live.queued > 0) detail += `${detail ? " \u00b7 " : ""}${fmt(live.queued)} queued`;
       parts.push(`<div class="panel state" data-key="state"><div class="state-head"><span class="ptitle">${esc(title || "Model state")}</span>` +
         `<span class="badges">${badges}</span></div><div class="state-row"><span>${esc(label)}</span><span class="muted">${esc(detail)}</span></div>` +
         `<div class="bar t-${tone}"><div style="width:${pct.toFixed(1)}%"></div></div></div>`);
@@ -170,35 +199,37 @@ class StrataCard extends HTMLElement {
         `<div class="tile-sub">${gen ? "Decode now" : "Decode last request"}</div></div>` +
         `<div class="right"><div class="tile-val">${this._val(prefill == null ? null : fmt(prefill), "t/s")}</div>` +
         `<div class="tile-sub">${live.state === "reading" ? "Prefill now" : gen ? "Prefill this request" : "Prefill last request"}</div></div></div>`;
-      const tiles = [];
-      tiles.push(`<div class="tile" data-key="decode_speed"><div class="tile-head"><ha-icon icon="mdi:speedometer"></ha-icon><span>Speed</span></div>${speed}` +
+      const tiles = {};
+      tiles.speed = (`<div class="tile" data-key="decode_speed"><div class="tile-head"><ha-icon icon="mdi:speedometer"></ha-icon><span>Speed</span></div>${speed}` +
         `<div class="tile-spark">${this._spark(h.tok_s, C.green)}${this._spark(h.prefill_tok_s_mean, C.green, 0, {overlay: true, noArea: true, opacity: 0.45})}</div></div>`);
       const multi = (hw.gpus || []).length > 1;
-      const per = (f) => (hw.gpus || []).map((g) => `GPU ${g.index} ${f(g)}`).join(" · ");
-      tiles.push(this._tile("gpu_load", "mdi:expansion-card", "GPU load", this._val(hw.gpu_util == null ? null : fmt(hw.gpu_util), "%"),
-        multi ? per((g) => (g.util == null ? "–" : `${fmt(g.util)}%`)) : sx.gpu_name || "", this._spark(h.gpu_util, C.green, 100)));
-      tiles.push(this._tile("vram_used", "mdi:layers-outline", "VRAM",
+      const per = (f) => (hw.gpus || []).map((g) => `GPU ${g.index} ${f(g)}`).join(" \u00b7 ");
+      tiles.gpu_load = (this._tile("gpu_load", "mdi:expansion-card", "GPU load", this._val(hw.gpu_util == null ? null : fmt(hw.gpu_util), "%"),
+        multi ? per((g) => (g.util == null ? "\u2013" : `${fmt(g.util)}%`)) : sx.gpu_name || "", this._spark(h.gpu_util, C.green, 100)));
+      tiles.vram = (this._tile("vram_used", "mdi:layers-outline", "VRAM",
         this._val(hw.gpu_mem_used == null ? null : this._gb(hw.gpu_mem_used), hw.gpu_mem_total ? `/ ${this._gb(hw.gpu_mem_total, 0)} GB` : "GB"),
         eng.expert_slots ? `${fmt(eng.expert_slots)} experts cached` : "", this._spark(h.gpu_mem_used, C.green, hw.gpu_mem_total)));
-      tiles.push(this._tile("gpu_temperature", "mdi:thermometer", "GPU temp", this._val(hw.gpu_temp == null ? null : fmt(hw.gpu_temp), "°C"),
-        multi ? per((g) => (g.temp == null ? "–" : `${fmt(g.temp)}°`)) : "", this._spark(h.gpu_temp, C.amber, 90)));
-      tiles.push(this._tile("gpu_power", "mdi:lightning-bolt-outline", "Power", this._val(hw.gpu_power == null ? null : fmt(hw.gpu_power), "W"),
+      tiles.gpu_temp = (this._tile("gpu_temperature", "mdi:thermometer", "GPU temp", this._val(hw.gpu_temp == null ? null : fmt(hw.gpu_temp), "\u00b0C"),
+        multi ? per((g) => (g.temp == null ? "\u2013" : `${fmt(g.temp)}\u00b0`)) : "", this._spark(h.gpu_temp, C.amber, 90)));
+      tiles.power = (this._tile("gpu_power", "mdi:lightning-bolt-outline", "Power", this._val(hw.gpu_power == null ? null : fmt(hw.gpu_power), "W"),
         hw.gpu_power_limit ? `of ${fmt(hw.gpu_power_limit)} W limit` : "", this._spark(h.gpu_power, C.green, hw.gpu_power_limit)));
       const pg = hw.gpu_pcie_gen_max || hw.gpu_pcie_gen;
-      tiles.push(this._tile("pcie_link", "mdi:link-variant", "PCIe", this._val(pg ? `Gen${pg}` : null, hw.gpu_pcie_width ? `x${hw.gpu_pcie_width}` : ""),
+      tiles.pcie = (this._tile("pcie_link", "mdi:link-variant", "PCIe", this._val(pg ? `Gen${pg}` : null, hw.gpu_pcie_width ? `x${hw.gpu_pcie_width}` : ""),
         (hw.gpu_pcie_rx_mb == null ? "" : `to GPU ${fmt(hw.gpu_pcie_rx_mb, hw.gpu_pcie_rx_mb < 10 ? 1 : 0)} MB/s`) +
-        (hw.gpu_pcie_gen && pg && hw.gpu_pcie_gen < pg ? ` · idle Gen${hw.gpu_pcie_gen}` : ""), this._spark(h.gpu_pcie_rx_mb, C.blue)));
-      tiles.push(this._tile("cpu", "mdi:cpu-64-bit", "CPU", this._val(hw.cpu == null ? null : fmt(hw.cpu), "%"),
-        sx.threads ? `${sx.cores ? `${sx.cores} cores · ` : ""}${sx.threads} threads` : "", this._spark(h.cpu, C.green, 100)));
+        (hw.gpu_pcie_gen && pg && hw.gpu_pcie_gen < pg ? ` \u00b7 idle Gen${hw.gpu_pcie_gen}` : ""), this._spark(h.gpu_pcie_rx_mb, C.blue)));
+      tiles.cpu = (this._tile("cpu", "mdi:cpu-64-bit", "CPU", this._val(hw.cpu == null ? null : fmt(hw.cpu), "%"),
+        sx.threads ? `${sx.cores ? `${sx.cores} cores \u00b7 ` : ""}${sx.threads} threads` : "", this._spark(h.cpu, C.green, 100)));
       let disk = null, dunit = "";
       if (hw.disk_read_mb != null) {
         const big = hw.disk_read_mb >= 1000;
         disk = big ? fmt(hw.disk_read_mb / 1024, 2) : fmt(hw.disk_read_mb, hw.disk_read_mb < 10 ? 1 : 0);
         dunit = big ? "GB/s" : "MB/s";
       }
-      tiles.push(this._tile("disk_read", "mdi:harddisk", "Disk read", this._val(disk, dunit),
+      tiles.disk = (this._tile("disk_read", "mdi:harddisk", "Disk read", this._val(disk, dunit),
         hw.disk_write_mb == null ? "" : `write ${fmt(hw.disk_write_mb, 1)} MB/s`, this._spark(h.disk_read_mb, C.blue)));
-      parts.push(`<div class="metrics">${tiles.join("")}</div>`);
+      const order = this._config.metrics || METRICS;
+      const cols = Number(this._config.columns) || Math.min(4, Math.max(1, order.length));
+      parts.push(`<div class="metrics c${Math.min(cols, 4)}" style="--cols:${cols}">${order.map((k) => tiles[k] || "").join("")}</div>`);
     }
 
     // ---------- context fill + recent requests ----------
@@ -218,12 +249,12 @@ class StrataCard extends HTMLElement {
         <div class="gauge"><svg viewBox="0 0 120 120">
           <circle cx="60" cy="60" r="50" fill="none" stroke="var(--track)" stroke-width="10" stroke-linecap="round" stroke-dasharray="235.6 314.2" transform="rotate(135 60 60)"/>
           <circle cx="60" cy="60" r="50" fill="none" stroke="${C.green}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} 314.2" transform="rotate(135 60 60)" style="opacity:${dash >= 3 ? 1 : 0}"/>
-        </svg><div class="glabel"><span class="gpct">${Math.round(frac * 100)}%</span><span class="muted">${ctx ? `${this._kfmt(used)} / ${this._ctxfmt(ctx)}` : "–"}</span></div></div>
-        <div class="brow" data-key="experts_cached"><span>Experts in VRAM</span><span class="muted">${eng.expert_slots ? `${fmt(eng.expert_slots)} · ${this._gb(cache)} GB` : "–"}</span></div>
+        </svg><div class="glabel"><span class="gpct">${Math.round(frac * 100)}%</span><span class="muted">${ctx ? `${this._kfmt(used)} / ${this._ctxfmt(ctx)}` : "\u2013"}</span></div></div>
+        <div class="brow" data-key="experts_cached"><span>Experts in VRAM</span><span class="muted">${eng.expert_slots ? `${fmt(eng.expert_slots)} \u00b7 ${this._gb(cache)} GB` : "\u2013"}</span></div>
         <div class="bar t-accent"><div style="width:${slotsPct}%"></div></div>
-        <div class="brow" data-key="ram_used"><span>System RAM</span><span class="muted">${hw.ram_total ? `${this._gb(hw.ram_used)} / ${this._gb(hw.ram_total, 0)} GB` : "–"}</span></div>
+        <div class="brow" data-key="ram_used"><span>System RAM</span><span class="muted">${hw.ram_total ? `${this._gb(hw.ram_used)} / ${this._gb(hw.ram_total, 0)} GB` : "\u2013"}</span></div>
         <div class="bar ${ramPct > 92 ? "t-danger" : "t-accent"}"><div style="width:${ramPct}%"></div></div>
-        <div class="brow" data-key="gpu_temperature"><span>GPU temperature</span><span class="muted">${hw.gpu_temp == null ? "–" : `${fmt(hw.gpu_temp)} °C`}</span></div>
+        <div class="brow" data-key="gpu_temperature"><span>GPU temperature</span><span class="muted">${hw.gpu_temp == null ? "\u2013" : `${fmt(hw.gpu_temp)} \u00b0C`}</span></div>
         <div class="bar t-warn"><div style="width:${tempPct}%"></div></div></div>`);
     }
     if (show.has("requests")) {
@@ -231,8 +262,8 @@ class StrataCard extends HTMLElement {
         disconnect: ["b-queued on", "Closed"], error: ["b-error on", "Error"], timeout: ["b-queued on", "Timeout"]};
       const n = Math.max(1, Number(this._config.max_requests) || 12);
       const rows = reqs.slice(0, n).map((r) => {
-        const [cls, text] = badge[r.finish] || ["", r.finish || "–"];
-        const hit = r.hit_rate == null ? "–" : `${(r.hit_rate * 100).toFixed(1)}%` +
+        const [cls, text] = badge[r.finish] || ["", r.finish || "\u2013"];
+        const hit = r.hit_rate == null ? "\u2013" : `${(r.hit_rate * 100).toFixed(1)}%` +
           (r.pcie_share ? ` <span class="muted">+${(r.pcie_share * 100).toFixed(1)}% PCIe</span>` : "");
         const fr = r.prompt_tokens == null ? null : Math.max(0, r.prompt_tokens - (r.reused || 0));
         const pr = fr > 0 && r.prompt_ms > 0 ? fr / (r.prompt_ms / 1000) : null;
@@ -248,7 +279,7 @@ class StrataCard extends HTMLElement {
         const read = totals.prompt_tokens - (totals.reused || 0);
         const ps = totals.prompt_ms > 0 && read > 0 ? ` at ${fmt(read / (totals.prompt_ms / 1000))} tok/s` : "";
         const os = totals.decode_ms > 0 && totals.output_tokens > 0 ? ` at ${fmt(totals.output_tokens / (totals.decode_ms / 1000), 1)} tok/s` : "";
-        foot = `Since ${since}: ${fmt(totals.requests)} requests · ${fmt(read)} prompt tokens read${ps} (${fmt(totals.reused)} reused) · ${fmt(totals.output_tokens)} written${os}`;
+        foot = `Since ${since}: ${fmt(totals.requests)} requests \u00b7 ${fmt(read)} prompt tokens read${ps} (${fmt(totals.reused)} reused) \u00b7 ${fmt(totals.output_tokens)} written${os}`;
       }
       const kept = a.requests_kept;
       row.push(`<div class="panel req"><div class="req-head"><span class="ptitle">Recent requests</span>` +
@@ -260,7 +291,7 @@ class StrataCard extends HTMLElement {
     }
     if (row.length) parts.push(`<div class="row${row.length === 1 ? " single" : ""}">${row.join("")}</div>`);
 
-    this.shadowRoot.innerHTML = `${STYLE}<ha-card><div class="wrap">${parts.join("")}</div></ha-card>`;
+    this.shadowRoot.innerHTML = `${STYLE}<ha-card class="${this._onlyMetrics() ? "bare" : ""}"><div class="wrap">${parts.join("")}</div></ha-card>`;
     this.shadowRoot.querySelectorAll("[data-key]").forEach((el) => {
       el.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -305,7 +336,10 @@ const STYLE = `<style>
   .bar.t-info > div { background: var(--st-blue); }
   .bar.t-warn > div { background: var(--st-amber); }
   .bar.t-danger > div { background: var(--st-red); }
-  .metrics { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:14px; }
+  .metrics { display:grid; grid-template-columns: repeat(var(--cols, 4), minmax(0,1fr)); gap:14px; }
+  ha-card.bare { background: none; border: none; box-shadow: none; padding: 0; overflow: visible; }
+  ha-card.bare .tile { background: var(--ha-card-background, var(--card-background-color)); border-radius: var(--ha-card-border-radius, 16px);
+    border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, var(--line)); box-shadow: var(--ha-card-box-shadow, none); }
   .tile { padding: 14px 16px 10px; display:flex; flex-direction:column; }
   .tile-head { display:flex; align-items:center; gap:8px; color: var(--primary-text-color); font-size:.95em; }
   .tile-head ha-icon { --mdc-icon-size: 18px; color: var(--muted); }
@@ -333,7 +367,7 @@ const STYLE = `<style>
   .num { text-align:right; }
   .foot { font-size:.85em; margin: 12px 0 0; }
   @container (max-width: 900px) {
-    .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .metrics.c3, .metrics.c4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
     .row { grid-template-columns: 1fr; }
   }
   @container (max-width: 420px) {
@@ -343,7 +377,51 @@ const STYLE = `<style>
   }
 </style>`;
 
+// visual editor: Home Assistant's own ha-form, so it looks like every other card editor
+const EDITOR_SCHEMA = [
+  {name: "entity", selector: {entity: {filter: {integration: "strata", domain: "sensor"}}}},
+  {name: "title", selector: {text: {}}},
+  {name: "sections", selector: {select: {multiple: true, mode: "list",
+    options: SECTIONS.map((v) => ({value: v, label: SECTION_LABELS[v]}))}}},
+  {name: "metrics", selector: {select: {multiple: true, mode: "list",
+    options: METRICS.map((v) => ({value: v, label: METRIC_LABELS[v]}))}}},
+  {name: "", type: "grid", schema: [
+    {name: "columns", selector: {number: {min: 1, max: 8, mode: "box"}}},
+    {name: "max_requests", selector: {number: {min: 1, max: 12, mode: "box"}}},
+  ]},
+];
+const EDITOR_LABELS = {entity: "Monitor sensor (Strata \u2026 Monitor)", title: "Title", sections: "Sections",
+  metrics: "Metric tiles", columns: "Tiles per row", max_requests: "Requests shown"};
+
+class StrataCardEditor extends HTMLElement {
+  setConfig(config) { this._config = config; this._render(); }
+  set hass(hass) { this._hass = hass; this._render(); }
+
+  _render() {
+    if (!this._hass || !this._config) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (s) => EDITOR_LABELS[s.name] || s.name;
+      this._form.computeHelper = (s) => s.name === "metrics" ? "Shown in the order you tick them. Untick everything but one for a single-stat card (with only the Metric tiles section)." : undefined;
+      this._form.addEventListener("value-changed", (ev) => {
+        const cfg = {...ev.detail.value};
+        // keep orders stable: sections follow the card's layout; metrics keep the order they were ticked in
+        if (Array.isArray(cfg.sections)) cfg.sections = SECTIONS.filter((x) => cfg.sections.includes(x));
+        for (const k of ["title", "columns"]) if (cfg[k] === "" || cfg[k] == null) delete cfg[k];
+        if (cfg.max_requests === 12) delete cfg.max_requests;
+        this._config = cfg;
+        this.dispatchEvent(new CustomEvent("config-changed", {detail: {config: cfg}, bubbles: true, composed: true}));
+      });
+      this.appendChild(this._form);
+    }
+    this._form.hass = this._hass;
+    this._form.schema = EDITOR_SCHEMA;
+    this._form.data = {sections: SECTIONS, metrics: METRICS, max_requests: 12, ...this._config};
+  }
+}
+
 if (!customElements.get("strata-card")) customElements.define("strata-card", StrataCard);
+if (!customElements.get("strata-card-editor")) customElements.define("strata-card-editor", StrataCardEditor);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "strata-card",

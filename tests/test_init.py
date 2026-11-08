@@ -153,3 +153,16 @@ async def test_reconfigure(hass: HomeAssistant, aioclient_mock) -> None:
     assert result["type"] is FlowResultType.ABORT and result["reason"] == "reconfigure_successful"
     assert entry.data[CONF_HOST] == "192.168.50.71" and entry.data[CONF_PORT] == 8095
     assert entry.data[CONF_API_KEY] == "secret"   # kept when left empty
+
+
+async def test_card_auto_loaded(hass: HomeAssistant, aioclient_mock, hass_client) -> None:
+    """The dashboard page lists the card as an extra module once the integration is set up."""
+    from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
+    await _setup(hass, aioclient_mock)
+    urls = list(hass.data[DATA_EXTRA_MODULE_URL].urls)
+    assert any(u.startswith("/strata_static/strata-card.js") for u in urls), urls
+    from unittest.mock import patch
+    client = await hass_client()
+    with patch("homeassistant.components.onboarding.async_is_onboarded", return_value=True):
+        page = await (await client.get("/lovelace/0")).text()
+    assert 'import("/strata_static/strata-card.js?v=0.2.0")' in page

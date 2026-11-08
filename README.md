@@ -22,7 +22,8 @@ If HA and Strata are on different VLANs, the firewall must allow HA → Strata o
 
 ## Install
 
-**HACS:** add this repository as a custom repository (type *Integration*), install *Strata LLM*, restart HA.
+**Marketplace / HACS:** *Add from a GitHub link* with this repository's URL, install *Strata LLM*, restart HA.
+Tagged releases (`v0.1.0`, …) show up as updates; without releases the default branch's latest commit is installed.
 
 **Manual:** copy `custom_components/strata` to `/config/custom_components/strata`, restart HA.
 
@@ -75,8 +76,27 @@ The integration serves and loads the card itself; no resource needs adding. Add 
 type: custom:strata-card
 # entity: sensor.strata_monitor        # optional; found automatically with one Strata server
 # title: Strata                        # optional, replaces "Model state"
-# sections: [state, metrics, context, requests]   # optional, default all, in this order
+# sections: [state, metrics, context, requests]   # optional, default all
+# metrics: [speed, gpu_load, vram, gpu_temp, power, pcie, cpu, disk]   # optional: which tiles, in this order
+# columns: 4                           # optional: tiles per row (default: up to 4)
 # max_requests: 12                     # optional, the server sends the last 12
+```
+
+The card has a visual editor (checkboxes for sections and tiles).
+
+Single stats: with only the `metrics` section, the tiles are drawn as cards of their own, so one stat per card works:
+
+```yaml
+type: custom:strata-card
+sections: [metrics]
+metrics: [power]
+```
+
+```yaml
+type: custom:strata-card
+sections: [metrics]
+metrics: [cpu, power, gpu_temp]
+columns: 3
 ```
 
 Use a *Panel* view or full width in a *Sections* view. Tiles open the matching sensor's history on click.
@@ -98,8 +118,14 @@ recorder:
 ## Tests
 
 ```sh
-pip install pytest-homeassistant-custom-component
-pytest tests
+pip install -r requirements_test.txt
+pytest
 ```
 
 The fixtures in `tests/fixtures/` follow the payload shape of `Service.metrics()` in Strata's `serve/server.py`.
+
+## Credits
+
+Not affiliated with the Strata project. The card's layout and its formulas (prefill excluding reused tokens, context
+fill, run averages) follow Strata's Monitor tab, `serve/web/app.js` in
+[Niko1221/Strata](https://github.com/Niko1221/Strata) (MIT License).
