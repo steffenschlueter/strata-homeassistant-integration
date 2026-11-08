@@ -1,12 +1,18 @@
 {
   "domain": "strata",
-  "name": "Strata LLM",
-  "codeowners": [],
+  "name": "Strata",
+  "codeowners": [
+    "@steffenschlueter"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "frontend"],
-  "documentation": "https://github.com/Niko1221/Strata",
+  "dependencies": [
+    "http",
+    "frontend"
+  ],
+  "documentation": "https://github.com/steffenschlueter/strata-homeassitant-integration",
   "integration_type": "service",
   "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/steffenschlueter/strata-homeassitant-integration/issues",
   "requirements": [],
-  "version": "0.2.0"
+  "version": "0.2.1"
 }

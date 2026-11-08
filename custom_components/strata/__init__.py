@@ -1,4 +1,4 @@
-"""The Strata LLM integration: monitoring KPIs of a Strata inference server."""
+"""The Strata integration: monitoring KPIs of a Strata inference server."""
 
 from __future__ import annotations
 

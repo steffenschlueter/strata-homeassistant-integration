@@ -12,7 +12,7 @@
           "api_key": "API key"
         },
         "data_description": {
-          "host": "IP address or domain, for example 192.168.50.70, 192.168.50.70:8080 or strata.example.net",
+          "host": "IP address or domain, for example 192.0.2.10, 192.0.2.10:8080 or strata.example.net",
           "port": "Strata's own port (8095 unless --port says otherwise). Leave empty for a reverse proxy on the standard port (80, or 443 with HTTPS).",
           "ssl": "On for an HTTPS reverse proxy.",
           "api_key": "The server's --api-key / STRATA_API_KEY. Leave empty if none is set."
@@ -36,7 +36,7 @@
           "api_key": "API key"
         },
         "data_description": {
-          "host": "IP address or domain, for example 192.168.50.70, 192.168.50.70:8080 or strata.example.net",
+          "host": "IP address or domain, for example 192.0.2.10, 192.0.2.10:8080 or strata.example.net",
           "port": "Strata's own port (8095 unless --port says otherwise). Leave empty for a reverse proxy on the standard port (80, or 443 with HTTPS).",
           "ssl": "On for an HTTPS reverse proxy.",
           "api_key": "The server's --api-key / STRATA_API_KEY. Leave empty if none is set."

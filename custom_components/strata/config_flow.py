@@ -1,4 +1,4 @@
-"""Config flow for Strata LLM: host (IP or domain), optional port, HTTPS, API key."""
+"""Config flow for Strata: host (IP or domain), optional port, HTTPS, API key."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ class InvalidHost(Exception):
 
 
 def parse_input(user_input: dict[str, Any]) -> dict[str, Any]:
-    """Accepts '192.168.50.70', '192.168.50.70:8080', 'strata.example.net', 'https://strata.example.net/',
+    """Accepts '192.0.2.10', '192.0.2.10:8080', 'strata.example.net', 'https://strata.example.net/',
     with the port either in the host field or in the port field (the port field wins)."""
     raw = str(user_input.get(CONF_HOST) or "").strip()
     if not raw:

@@ -12,7 +12,7 @@
  * A card with only the metrics section draws its tiles without the surrounding card, so a single tile
  * (metrics: [power]) sits on the dashboard like any other card.
  */
-const CARD_VERSION = "0.2.0";
+const CARD_VERSION = "0.2.1";
 
 const SECTIONS = ["state", "metrics", "context", "requests"];
 const METRICS = ["speed", "gpu_load", "vram", "gpu_temp", "power", "pcie", "cpu", "disk"];
@@ -426,8 +426,8 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "strata-card",
   name: "Strata Monitor",
-  description: "Strata LLM server: model state, speed, GPU, context fill and recent requests.",
+  description: "Strata server: model state, speed, GPU, context fill and recent requests.",
   preview: true,
-  documentationURL: "https://github.com/Niko1221/Strata",
+  documentationURL: "https://github.com/steffenschlueter/strata-homeassitant-integration",
 });
 console.info(`%c STRATA-CARD %c ${CARD_VERSION} `, "background:#34d399;color:#052e20;font-weight:700", "background:#161a1d;color:#fff");

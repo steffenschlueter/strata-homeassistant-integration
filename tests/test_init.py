@@ -12,7 +12,7 @@ from homeassistant.helpers import entity_registry as er
 from custom_components.strata.const import DOMAIN
 
 FIX = Path(__file__).parent / "fixtures"
-URL = "http://192.168.50.70:8080"
+URL = "http://192.0.2.10:8080"
 HEALTH = {"status": "ok", "max_context": 262144, "model": "qwen3.8-flash-next", "service": "strata", "loaded": True}
 
 
@@ -25,7 +25,7 @@ async def _setup(hass, aioclient_mock, name="metrics", key="secret"):
     aioclient_mock.get(f"{URL}/metrics", json=_metrics(name))
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert result["type"] is FlowResultType.FORM
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_HOST: "192.168.50.70", CONF_PORT: 8080, CONF_API_KEY: key})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_HOST: "192.0.2.10", CONF_PORT: 8080, CONF_API_KEY: key})
     assert result["type"] is FlowResultType.CREATE_ENTRY, result
     await hass.async_block_till_done()
     return result["result"]
@@ -41,8 +41,8 @@ def _id(hass, key):
 
 async def test_idle(hass: HomeAssistant, aioclient_mock) -> None:
     entry = await _setup(hass, aioclient_mock)
-    assert entry.data[CONF_HOST] == "192.168.50.70" and entry.data[CONF_PORT] == 8080
-    assert entry.unique_id == "192.168.50.70:8080"
+    assert entry.data[CONF_HOST] == "192.0.2.10" and entry.data[CONF_PORT] == 8080
+    assert entry.unique_id == "192.0.2.10:8080"
     # the key is sent as a bearer token
     sent = [c for c in aioclient_mock.mock_calls if str(c[1]).endswith("/metrics")]
     assert sent and sent[-1][3]["Authorization"] == "Bearer secret"
@@ -89,7 +89,7 @@ async def test_bad_key(hass: HomeAssistant, aioclient_mock) -> None:
     aioclient_mock.get(f"{URL}/health", json=HEALTH)
     aioclient_mock.get(f"{URL}/metrics", status=401)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_HOST: "192.168.50.70:8080", CONF_API_KEY: "nope"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_HOST: "192.0.2.10:8080", CONF_API_KEY: "nope"})
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_auth"}
 
@@ -97,7 +97,7 @@ async def test_bad_key(hass: HomeAssistant, aioclient_mock) -> None:
 async def test_not_strata(hass: HomeAssistant, aioclient_mock) -> None:
     aioclient_mock.get(f"{URL}/health", json={"status": "ok"})
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_HOST: "http://192.168.50.70:8080/"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_HOST: "http://192.0.2.10:8080/"})
     assert result["errors"] == {"base": "cannot_connect"}
 
 
@@ -126,9 +126,9 @@ def test_parse_input() -> None:
     from custom_components.strata.coordinator import build_url
     import pytest
     cases = {
-        ("192.168.50.70", 8080, False): "http://192.168.50.70:8080",
-        ("192.168.50.70:8080", None, False): "http://192.168.50.70:8080",
-        ("http://192.168.50.70:8080/", None, False): "http://192.168.50.70:8080",
+        ("192.0.2.10", 8080, False): "http://192.0.2.10:8080",
+        ("192.0.2.10:8080", None, False): "http://192.0.2.10:8080",
+        ("http://192.0.2.10:8080/", None, False): "http://192.0.2.10:8080",
         ("strata.example.net", None, False): "http://strata.example.net",
         ("strata.example.net", None, True): "https://strata.example.net",
         ("https://strata.example.net/", None, False): "https://strata.example.net",
@@ -144,14 +144,14 @@ def test_parse_input() -> None:
 
 async def test_reconfigure(hass: HomeAssistant, aioclient_mock) -> None:
     entry = await _setup(hass, aioclient_mock)
-    new = "http://192.168.50.71:8095"
+    new = "http://192.0.2.11:8095"
     aioclient_mock.get(f"{new}/health", json=HEALTH)
     aioclient_mock.get(f"{new}/metrics", json=_metrics())
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": entry.entry_id})
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_HOST: "192.168.50.71", CONF_PORT: 8095})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_HOST: "192.0.2.11", CONF_PORT: 8095})
     assert result["type"] is FlowResultType.ABORT and result["reason"] == "reconfigure_successful"
-    assert entry.data[CONF_HOST] == "192.168.50.71" and entry.data[CONF_PORT] == 8095
+    assert entry.data[CONF_HOST] == "192.0.2.11" and entry.data[CONF_PORT] == 8095
     assert entry.data[CONF_API_KEY] == "secret"   # kept when left empty
 
 
@@ -165,4 +165,4 @@ async def test_card_auto_loaded(hass: HomeAssistant, aioclient_mock, hass_client
     client = await hass_client()
     with patch("homeassistant.components.onboarding.async_is_onboarded", return_value=True):
         page = await (await client.get("/lovelace/0")).text()
-    assert 'import("/strata_static/strata-card.js?v=0.2.0")' in page
+    assert 'import("/strata_static/strata-card.js?v=0.2.1")' in page
