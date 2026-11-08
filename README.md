@@ -1,5 +1,7 @@
 # Strata LLM for Home Assistant
 
+Fully AI generated with Opus 5.5
+
 Custom integration for a [Strata](https://github.com/Niko1221/Strata) inference server. It polls the server's
 `GET /metrics` (the JSON feed behind Strata's own Monitor tab), exposes the KPIs as sensors, and ships a Lovelace
 card, `custom:strata-card`, laid out like the Monitor tab.
