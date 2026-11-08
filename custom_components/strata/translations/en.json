@@ -1,0 +1,187 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Strata",
+        "description": "The Strata server must accept connections from Home Assistant (`--host 0.0.0.0`). Set an API key on the server when you do.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "host": "IP address or domain, for example 192.168.50.70, 192.168.50.70:8080 or strata.example.net",
+          "port": "Strata's own port (8095 unless --port says otherwise). Leave empty for a reverse proxy on the standard port (80, or 443 with HTTPS).",
+          "ssl": "On for an HTTPS reverse proxy.",
+          "api_key": "The server's --api-key / STRATA_API_KEY. Leave empty if none is set."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Strata API key",
+        "description": "The server at {url} rejected the API key. Enter the current one.",
+        "data": {
+          "api_key": "API key"
+        }
+      },
+      "reconfigure": {
+        "title": "Change Strata connection",
+        "description": "Leave the API key empty to keep the current one.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "host": "IP address or domain, for example 192.168.50.70, 192.168.50.70:8080 or strata.example.net",
+          "port": "Strata's own port (8095 unless --port says otherwise). Leave empty for a reverse proxy on the standard port (80, or 443 with HTTPS).",
+          "ssl": "On for an HTTPS reverse proxy.",
+          "api_key": "The server's --api-key / STRATA_API_KEY. Leave empty if none is set."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach a Strata server at that URL.",
+      "invalid_auth": "The server rejected the API key.",
+      "unknown": "Unexpected error, see the log.",
+      "invalid_host": "Enter an IP address or a domain, optionally with :port."
+    },
+    "abort": {
+      "already_configured": "This Strata server is already configured.",
+      "reauth_successful": "API key updated.",
+      "reconfigure_successful": "Connection updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Strata options",
+        "data": {
+          "scan_interval": "Polling interval"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Model state",
+        "state": {
+          "idle": "Idle",
+          "reading": "Reading",
+          "generating": "Generating",
+          "queued": "Queued",
+          "unloaded": "Unloaded"
+        }
+      },
+      "queued": {
+        "name": "Queued requests"
+      },
+      "decode_speed": {
+        "name": "Decode speed"
+      },
+      "prefill_speed": {
+        "name": "Prefill speed"
+      },
+      "decode_speed_avg": {
+        "name": "Decode speed (run average)"
+      },
+      "prefill_speed_avg": {
+        "name": "Prefill speed (run average)"
+      },
+      "gpu_load": {
+        "name": "GPU load"
+      },
+      "vram_used": {
+        "name": "VRAM used"
+      },
+      "gpu_temperature": {
+        "name": "GPU temperature"
+      },
+      "gpu_power": {
+        "name": "GPU power"
+      },
+      "pcie_link": {
+        "name": "PCIe link"
+      },
+      "pcie_rx": {
+        "name": "PCIe to GPU"
+      },
+      "cpu": {
+        "name": "CPU load"
+      },
+      "ram_used": {
+        "name": "System RAM used"
+      },
+      "disk_read": {
+        "name": "Disk read"
+      },
+      "disk_write": {
+        "name": "Disk write"
+      },
+      "context_used": {
+        "name": "Context used"
+      },
+      "context_fill": {
+        "name": "Context fill"
+      },
+      "max_context": {
+        "name": "Max context"
+      },
+      "experts_cached": {
+        "name": "Experts in VRAM"
+      },
+      "expert_cache_size": {
+        "name": "Expert cache size"
+      },
+      "model": {
+        "name": "Model"
+      },
+      "last_prompt_tokens": {
+        "name": "Last request prompt tokens"
+      },
+      "last_output_tokens": {
+        "name": "Last request output tokens"
+      },
+      "last_duration": {
+        "name": "Last request duration"
+      },
+      "last_vram_hit_rate": {
+        "name": "Last request VRAM hit rate"
+      },
+      "requests_total": {
+        "name": "Requests"
+      },
+      "prompt_tokens_read": {
+        "name": "Prompt tokens read"
+      },
+      "prompt_tokens_reused": {
+        "name": "Prompt tokens reused"
+      },
+      "output_tokens": {
+        "name": "Output tokens"
+      },
+      "monitor": {
+        "name": "Monitor",
+        "state": {
+          "idle": "Idle",
+          "reading": "Reading",
+          "generating": "Generating",
+          "queued": "Queued",
+          "unloaded": "Unloaded"
+        }
+      }
+    },
+    "binary_sensor": {
+      "model_loaded": {
+        "name": "Model loaded"
+      },
+      "busy": {
+        "name": "Busy"
+      }
+    }
+  }
+}

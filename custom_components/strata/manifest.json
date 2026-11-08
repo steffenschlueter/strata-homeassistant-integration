@@ -1,0 +1,12 @@
+{
+  "domain": "strata",
+  "name": "Strata LLM",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["http", "frontend"],
+  "documentation": "https://github.com/Niko1221/Strata",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "version": "0.1.0"
+}
