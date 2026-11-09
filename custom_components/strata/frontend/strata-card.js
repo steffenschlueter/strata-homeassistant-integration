@@ -12,7 +12,7 @@
  * A card with only the metrics section draws its tiles without the surrounding card, so a single tile
  * (metrics: [power]) sits on the dashboard like any other card.
  */
-const CARD_VERSION = "0.2.1";
+const CARD_VERSION = "0.2.2";
 
 const SECTIONS = ["state", "metrics", "context", "requests"];
 const METRICS = ["speed", "gpu_load", "vram", "gpu_temp", "power", "pcie", "cpu", "disk"];

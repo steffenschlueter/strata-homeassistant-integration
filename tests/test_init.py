@@ -165,4 +165,4 @@ async def test_card_auto_loaded(hass: HomeAssistant, aioclient_mock, hass_client
     client = await hass_client()
     with patch("homeassistant.components.onboarding.async_is_onboarded", return_value=True):
         page = await (await client.get("/lovelace/0")).text()
-    assert 'import("/strata_static/strata-card.js?v=0.2.1")' in page
+    assert 'import("/strata_static/strata-card.js?v=0.2.2")' in page

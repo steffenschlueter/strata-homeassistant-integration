@@ -22,7 +22,10 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+try:  # Home Assistant 2025.3+
+    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+except ImportError:  # 2025.1 / 2025.2
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback as AddConfigEntryEntitiesCallback
 
 from .const import REQUEST_FIELDS
 from .coordinator import StrataConfigEntry, StrataCoordinator
