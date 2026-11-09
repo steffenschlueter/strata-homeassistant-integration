@@ -39,7 +39,10 @@ class StrataCard extends HTMLElement {
       hass.states[id].attributes.hardware_static && hass.states[id].attributes.engine) || null;
   }
 
-  static getConfigElement() { return document.createElement("strata-card-editor"); }
+  static async getConfigElement() {
+    await ensureHaForm();
+    return document.createElement("strata-card-editor");
+  }
 
   setConfig(config) {
     for (const [key, allowed] of [["sections", SECTIONS], ["metrics", METRICS]]) {
@@ -376,6 +379,17 @@ const STYLE = `<style>
     .tile-val { font-size: 1.8em; }
   }
 </style>`;
+
+// ha-form is loaded lazily by Home Assistant; a built-in card's editor pulls it in.
+async function ensureHaForm() {
+  if (customElements.get("ha-form")) return;
+  try {
+    const helpers = await window.loadCardHelpers();
+    const card = await helpers.createCardElement({type: "entities", entities: []});
+    if (card.constructor.getConfigElement) await card.constructor.getConfigElement();
+  } catch (e) { /* the editor still opens; ha-form appears once Home Assistant loads it */ }
+  await Promise.race([customElements.whenDefined("ha-form"), new Promise((r) => setTimeout(r, 3000))]);
+}
 
 // visual editor: Home Assistant's own ha-form, so it looks like every other card editor
 const EDITOR_SCHEMA = [
