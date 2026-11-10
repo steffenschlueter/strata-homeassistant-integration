@@ -5,8 +5,18 @@ from __future__ import annotations
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+try:  # Home Assistant 2025.3+
+    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+except ImportError:  # 2025.1 / 2025.2
+    from homeassistant.helpers.entity_platform import (  # type: ignore[assignment]
+        AddEntitiesCallback as AddConfigEntryEntitiesCallback,
+    )
+
+from . import metrics as m
 from .const import DOMAIN
 from .coordinator import StrataCoordinator
+
+__all__ = ["AddConfigEntryEntitiesCallback", "StrataEntity"]
 
 
 class StrataEntity(CoordinatorEntity[StrataCoordinator]):
@@ -16,8 +26,9 @@ class StrataEntity(CoordinatorEntity[StrataCoordinator]):
         super().__init__(coordinator)
         entry = coordinator.config_entry
         self._attr_unique_id = f"{entry.entry_id}_{key}"
-        engine = (coordinator.data or {}).get("engine") or {}
-        static = (coordinator.data or {}).get("hardware_static") or {}
+        data = coordinator.data or {}
+        engine = m.engine(data)
+        static = data.get("hardware_static") or {}
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="Strata",

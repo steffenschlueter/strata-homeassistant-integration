@@ -8,6 +8,14 @@ from typing import Any
 import aiohttp
 
 
+def build_url(host: str, port: int | None, ssl: bool) -> str:
+    """http(s)://host[:port]. No port: the scheme's default (a reverse proxy on 80/443)."""
+    host = host.strip()
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"  # IPv6
+    return f"{'https' if ssl else 'http'}://{host}" + (f":{int(port)}" if port else "")
+
+
 class StrataError(Exception):
     """Base error."""
 

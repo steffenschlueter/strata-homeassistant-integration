@@ -36,7 +36,7 @@ firewall rule must allow Home Assistant to reach the Strata port.
 ### Marketplace (recommended)
 
 1. In Home Assistant, open the Marketplace and choose **Add from a GitHub link**.
-2. Paste `https://github.com/steffenschlueter/strata-homeassitant-integration` and select **Add**.
+2. Paste `https://github.com/steffenschlueter/strata-homeassistant-integration` and select **Add**.
 3. Install **Strata**.
 4. **Restart Home Assistant.** New integrations are only picked up at startup.
 
@@ -45,7 +45,7 @@ New releases appear as updates in the Marketplace. After updating, restart Home 
 ### HACS
 
 1. In HACS, open the ⋮ menu → **Custom repositories**.
-2. Add `https://github.com/steffenschlueter/strata-homeassitant-integration` with type **Integration**.
+2. Add `https://github.com/steffenschlueter/strata-homeassistant-integration` with type **Integration**.
 3. Search for **Strata**, download it, and restart Home Assistant.
 
 ### Manual

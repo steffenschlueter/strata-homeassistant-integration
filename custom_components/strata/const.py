@@ -6,10 +6,8 @@ import logging
 
 DOMAIN = "strata"
 LOGGER = logging.getLogger(__package__)
-VERSION = "0.2.2"
 
 CONF_VERIFY_SSL = "verify_ssl"
-DEFAULT_PORT = 8095  # Strata's --port default (serve/server.py)
 DEFAULT_SCAN_INTERVAL = 5  # seconds
 MIN_SCAN_INTERVAL = 2
 MAX_SCAN_INTERVAL = 300

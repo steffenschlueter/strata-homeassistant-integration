@@ -10,8 +10,9 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.loader import async_get_integration
 
-from .const import CARD_URL, DOMAIN, STATIC_URL, VERSION
+from .const import CARD_URL, DOMAIN, STATIC_URL
 from .coordinator import StrataConfigEntry, StrataCoordinator
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
@@ -23,7 +24,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     await hass.http.async_register_static_paths(
         [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False)]
     )
-    add_extra_js_url(hass, f"{CARD_URL}?v={VERSION}")
+    version = (await async_get_integration(hass, DOMAIN)).version  # busts the browser cache on updates
+    add_extra_js_url(hass, f"{CARD_URL}?v={version}")
     return True
 
 

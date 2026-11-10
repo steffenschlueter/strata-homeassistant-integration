@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -12,33 +11,25 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntityDescription,
 )
 from homeassistant.core import HomeAssistant
-try:  # Home Assistant 2025.3+
-    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-except ImportError:  # 2025.1 / 2025.2
-    from homeassistant.helpers.entity_platform import AddEntitiesCallback as AddConfigEntryEntitiesCallback
 
+from . import metrics as m
 from .coordinator import StrataConfigEntry, StrataCoordinator
-from .entity import StrataEntity
+from .entity import AddConfigEntryEntitiesCallback, StrataEntity
 
 
 @dataclass(frozen=True, kw_only=True)
 class StrataBinaryDescription(BinarySensorEntityDescription):
-    value_fn: Callable[[dict[str, Any]], bool | None]
-
-
-def _st(d: dict[str, Any]) -> str | None:
-    return (d.get("live") or {}).get("state")
+    value_fn: Callable[[m.Data], bool | None]
 
 
 BINARY_SENSORS: tuple[StrataBinaryDescription, ...] = (
     StrataBinaryDescription(
         key="model_loaded", translation_key="model_loaded", icon="mdi:brain",
-        value_fn=lambda d: None if _st(d) is None else _st(d) != "unloaded",
+        value_fn=m.model_loaded,
     ),
     StrataBinaryDescription(
         key="busy", translation_key="busy", device_class=BinarySensorDeviceClass.RUNNING,
-        value_fn=lambda d: None if _st(d) is None else
-        (_st(d) in ("reading", "generating") or bool((d.get("live") or {}).get("queued"))),
+        value_fn=m.busy,
     ),
 )
 

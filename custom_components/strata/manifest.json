@@ -9,10 +9,10 @@
     "http",
     "frontend"
   ],
-  "documentation": "https://github.com/steffenschlueter/strata-homeassitant-integration",
+  "documentation": "https://github.com/steffenschlueter/strata-homeassistant-integration",
   "integration_type": "service",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/steffenschlueter/strata-homeassitant-integration/issues",
+  "issue_tracker": "https://github.com/steffenschlueter/strata-homeassistant-integration/issues",
   "requirements": [],
-  "version": "0.2.2"
+  "version": "0.2.3"
 }

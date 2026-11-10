@@ -6,8 +6,6 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
-from yarl import URL
-
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -16,7 +14,6 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_API_KEY, CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL, CONF_SSL
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
@@ -25,8 +22,9 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
+from yarl import URL
 
-from .api import StrataAuthError, StrataClient, StrataConnectionError
+from .api import StrataAuthError, StrataConnectionError
 from .const import (
     CONF_VERIFY_SSL,
     DEFAULT_SCAN_INTERVAL,
@@ -35,7 +33,7 @@ from .const import (
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
 )
-from .coordinator import build_url
+from .coordinator import create_client, entry_url
 
 
 class InvalidHost(Exception):
@@ -76,24 +74,35 @@ def parse_input(user_input: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _unique_id(data: dict[str, Any]) -> str:
+def _unique_id(data: Mapping[str, Any]) -> str:
     port = data[CONF_PORT] or (443 if data[CONF_SSL] else 80)
     return f"{data[CONF_HOST].lower()}:{port}"
 
 
-async def _validate(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
-    """Raise on failure; return /health."""
-    verify = data[CONF_VERIFY_SSL]
-    client = StrataClient(async_get_clientsession(hass, verify_ssl=verify), build_url(data),
-                          data[CONF_API_KEY], verify)
-    health = await client.health()
-    if health.get("service") != "strata":
+async def _validate(hass: HomeAssistant, data: Mapping[str, Any]) -> None:
+    """Raise unless data points at a Strata server that accepts the key."""
+    client = create_client(hass, data)
+    if (await client.health()).get("service") != "strata":
         raise StrataConnectionError("not a Strata server")
     await client.metrics()  # /metrics is key-protected; a wrong key shows here
-    return health
 
 
-def _schema(defaults: dict[str, Any], with_key: bool = True) -> vol.Schema:
+async def _errors(hass: HomeAssistant, data: Mapping[str, Any]) -> dict[str, str]:
+    """Validate data; the form errors, empty on success."""
+    try:
+        await _validate(hass, data)
+    except StrataAuthError:
+        return {"base": "invalid_auth"}
+    except StrataConnectionError as err:
+        LOGGER.debug("Strata validation failed for %s: %s", entry_url(data), err)
+        return {"base": "cannot_connect"}
+    except Exception:  # noqa: BLE001
+        LOGGER.exception("Unexpected error validating Strata")
+        return {"base": "unknown"}
+    return {}
+
+
+def _schema(defaults: Mapping[str, Any]) -> vol.Schema:
     port = defaults.get(CONF_PORT)
     fields: dict[Any, Any] = {
         vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "")): TextSelector(),
@@ -102,31 +111,24 @@ def _schema(defaults: dict[str, Any], with_key: bool = True) -> vol.Schema:
         ),
         vol.Optional(CONF_SSL, default=defaults.get(CONF_SSL, False)): bool,
         vol.Optional(CONF_VERIFY_SSL, default=defaults.get(CONF_VERIFY_SSL, True)): bool,
+        vol.Optional(CONF_API_KEY): _password(),
     }
-    if with_key:
-        fields[vol.Optional(CONF_API_KEY)] = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
     return vol.Schema(fields)
 
 
+def _password() -> TextSelector:
+    return TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
+
+
 async def _try(hass: HomeAssistant, user_input: dict[str, Any], errors: dict[str, str]) -> dict[str, Any] | None:
+    """Parse and validate the form; the entry data, or None with errors filled in."""
     try:
         data = parse_input(user_input)
     except InvalidHost:
         errors[CONF_HOST] = "invalid_host"
         return None
-    try:
-        await _validate(hass, data)
-    except StrataAuthError:
-        errors["base"] = "invalid_auth"
-    except StrataConnectionError as err:
-        LOGGER.debug("Strata validation failed for %s: %s", build_url(data), err)
-        errors["base"] = "cannot_connect"
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("Unexpected error validating Strata")
-        errors["base"] = "unknown"
-    else:
-        return data
-    return None
+    errors.update(await _errors(hass, data))
+    return None if errors else data
 
 
 class StrataConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -171,21 +173,15 @@ class StrataConfigFlow(ConfigFlow, domain=DOMAIN):
         entry = self._get_reauth_entry()
         if user_input is not None:
             data = {**entry.data, CONF_API_KEY: (user_input.get(CONF_API_KEY) or "").strip() or None}
-            try:
-                await _validate(self.hass, data)
-            except StrataAuthError:
-                errors["base"] = "invalid_auth"
-            except StrataConnectionError:
-                errors["base"] = "cannot_connect"
-            else:
+            if not (errors := await _errors(self.hass, data)):
                 return self.async_update_reload_and_abort(entry, data_updates={CONF_API_KEY: data[CONF_API_KEY]})
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=vol.Schema({
-                vol.Optional(CONF_API_KEY): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+                vol.Optional(CONF_API_KEY): _password(),
             }),
             errors=errors,
-            description_placeholders={"url": build_url(entry.data)},
+            description_placeholders={"url": entry_url(entry.data)},
         )
 
     @staticmethod

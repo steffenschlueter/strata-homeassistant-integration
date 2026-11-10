@@ -16,6 +16,10 @@ URL = "http://192.0.2.10:8080"
 HEALTH = {"status": "ok", "max_context": 262144, "model": "qwen3.8-flash-next", "service": "strata", "loaded": True}
 
 
+def _manifest():
+    return json.loads((Path(__file__).parents[1] / "custom_components/strata/manifest.json").read_text())
+
+
 def _metrics(name="metrics"):
     return json.loads((FIX / f"{name}.json").read_text())
 
@@ -122,9 +126,10 @@ async def test_domain_only_https(hass: HomeAssistant, aioclient_mock) -> None:
 
 
 def test_parse_input() -> None:
-    from custom_components.strata.config_flow import InvalidHost, parse_input
-    from custom_components.strata.coordinator import build_url
     import pytest
+
+    from custom_components.strata.config_flow import InvalidHost, parse_input
+    from custom_components.strata.coordinator import entry_url
     cases = {
         ("192.0.2.10", 8080, False): "http://192.0.2.10:8080",
         ("192.0.2.10:8080", None, False): "http://192.0.2.10:8080",
@@ -136,7 +141,7 @@ def test_parse_input() -> None:
         ("[fd00::70]:8095", None, False): "http://[fd00::70]:8095",
     }
     for (host, port, ssl), url in cases.items():
-        assert build_url(parse_input({CONF_HOST: host, CONF_PORT: port, CONF_SSL: ssl})) == url, host
+        assert entry_url(parse_input({CONF_HOST: host, CONF_PORT: port, CONF_SSL: ssl})) == url, host
     for bad in ("", "   ", "http://", "a b"):
         with pytest.raises(InvalidHost):
             parse_input({CONF_HOST: bad})
@@ -165,4 +170,10 @@ async def test_card_auto_loaded(hass: HomeAssistant, aioclient_mock, hass_client
     client = await hass_client()
     with patch("homeassistant.components.onboarding.async_is_onboarded", return_value=True):
         page = await (await client.get("/lovelace/0")).text()
-    assert 'import("/strata_static/strata-card.js?v=0.2.2")' in page
+    assert f'import("/strata_static/strata-card.js?v={_manifest()["version"]}")' in page
+
+
+def test_versions_match() -> None:
+    """The card announces the same version as the manifest."""
+    card = (Path(__file__).parents[1] / "custom_components/strata/frontend/strata-card.js").read_text()
+    assert f'const CARD_VERSION = "{_manifest()["version"]}";' in card
